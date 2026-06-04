@@ -3,171 +3,206 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EXTOR - Data Reconciler Exhibit</title>
-    <!-- นำเข้าฟอนต์แนวหรูหราพรีเมียม -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
-    
+    <title>EXTOR - Data Reconciler</title>
+    <!-- นำเข้าฟอนต์สไตล์ล้ำยุค -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700;900&display=swap" rel="stylesheet">
     <style>
-        * {
-            box-sizing: border-box;
+        :root {
+            --primary: #00f2fe;
+            --secondary: #4facfe;
+            --bg-color: #050505;
+        }
+        body, html {
             margin: 0;
             padding: 0;
-        }
-        body { 
-            font-family: 'Inter', sans-serif; 
-            background: radial-gradient(circle at center, #111622 0%, #07090e 100%);
-            color: #f0f3f8; 
-            text-align: center; 
-            min-height: 100vh;
+            width: 100%;
+            height: 100vh;
+            font-family: 'Poppins', sans-serif;
+            background-color: var(--bg-color);
+            overflow: hidden;
+            color: #fff;
             display: flex;
-            align-items: center;
             justify-content: center;
-            padding: 20px;
-            overflow-x: hidden;
+            align-items: center;
         }
-        /* แอนิเมชันแสงพื้นหลังขยับช้า ๆ เหมือนงานศิลปะดิจิทัล */
-        body::before {
-            content: '';
+        /* --- อนิเมชันแสงเบลอขยับไปมาด้านหลัง (Glowing Blobs) --- */
+        .blob-container {
             position: absolute;
-            width: 300px;
-            height: 300px;
-            background: #005eb8;
-            filter: blur(150px);
-            opacity: 0.15;
-            top: 20%;
-            left: 25%;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
             z-index: 0;
-            animation: floating 8s ease-in-out infinite alternate;
+            filter: blur(80px);
         }
-        @keyframes floating {
-            0% { transform: translate(0, 0); }
-            100% { transform: translate(50px, 50px); }
+        .blob {
+            position: absolute;
+            border-radius: 50%;
+            animation: move 10s infinite alternate cubic-bezier(0.4, 0, 0.2, 1);
+            opacity: 0.6;
+        }
+        .blob1 {
+            width: 400px; height: 400px;
+            background: var(--primary);
+            top: -10%; left: -10%;
+            animation-duration: 12s;
+        }
+        .blob2 {
+            width: 500px; height: 500px;
+            background: #667eea;
+            bottom: -20%; right: -10%;
+            animation-duration: 15s;
+            animation-delay: 2s;
+        }
+        .blob3 {
+            width: 350px; height: 350px;
+            background: #764ba2;
+            top: 40%; left: 30%;
+            animation-duration: 18s;
+        }
+        @keyframes move {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(150px, 100px) scale(1.2); }
         }
 
-        .showcase-card { 
-            position: relative;
+        /* --- ลายเส้นตารางแบบ Tech Grid --- */
+        .grid-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
             z-index: 1;
-            max-width: 600px; 
-            width: 100%;
-            /* เคลือบกระจกโปร่งแสง Glassmorphism */
-            background: rgba(22, 27, 34, 0.4); 
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            padding: 60px 50px; 
-            border-radius: 24px; 
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6), 
-                        inset 0 1px 0 rgba(255, 255, 255, 0.1);
         }
-        .gallery-tag {
-            font-size: 11px;
+
+        /* --- กล่องข้อความโปร่งแสง (Glassmorphism) --- */
+        .content {
+            position: relative;
+            z-index: 2;
+            background: rgba(15, 15, 15, 0.6);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px;
+            padding: 60px 50px;
+            text-align: center;
+            max-width: 500px;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.6);
+            animation: floatUp 1s ease-out forwards;
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        @keyframes floatUp {
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* --- ชื่อแบรนด์แบบมีแสงวิ่ง --- */
+        .logo-text {
+            font-size: 65px;
+            font-weight: 900;
+            margin: 0;
+            line-height: 1;
             letter-spacing: 4px;
-            color: #8b949e;
-            text-transform: uppercase;
-            margin-bottom: 25px;
-            font-weight: 600;
+            background: linear-gradient(to right, #00f2fe, #4facfe, #00f2fe, #4facfe);
+            background-size: 300% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: shine 4s linear infinite;
         }
-        .brand-title {
-            font-family: 'Cormorant Garamond', serif;
-            font-size: 48px;
-            font-weight: 400;
-            color: #ffffff;
-            letter-spacing: 3px;
-            line-height: 1.1;
-            margin-bottom: 8px;
+        @keyframes shine {
+            to { background-position: 200% center; }
         }
-        .brand-sub {
-            font-size: 12px;
-            color: #00a0ff;
+        
+        .subtitle {
+            font-size: 14px;
+            color: #a0aec0;
             letter-spacing: 5px;
             text-transform: uppercase;
-            margin-bottom: 40px;
-            font-weight: 600;
-            opacity: 0.8;
-        }
-        .divider {
-            width: 40px;
-            height: 1px;
-            background-color: rgba(255, 255, 255, 0.2);
-            margin: 0 auto 35px auto;
-        }
-        h2 { 
-            font-size: 20px; 
-            font-weight: 400;
-            color: #ffffff; 
-            margin-bottom: 12px; 
-            letter-spacing: 1px;
-        }
-        p { 
-            color: #8b949e; 
-            font-size: 14px; 
-            line-height: 1.8; 
-            font-weight: 300;
-        }
-        /* ปุ่มดาวน์โหลดหรูหราพร้อมแสงนีออนเรืองแสงเมื่อเมาส์ชี้ */
-        .btn-artwork { 
-            display: inline-block; 
-            padding: 16px 45px; 
-            margin-top: 40px; 
-            font-size: 14px; 
-            font-weight: 600; 
-            color: #ffffff; 
-            background: #005eb8;
-            text-decoration: none; 
-            border-radius: 50px; 
-            letter-spacing: 2px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); 
-        }
-        .btn-artwork:hover { 
-            background: #ffffff; 
-            color: #07090e;
-            transform: translateY(-3px);
-            box-shadow: 0 15px 30px rgba(0, 94, 184, 0.4),
-                        0 0 20px rgba(255, 255, 255, 0.2);
-        }
-        .version-badge {
-            display: inline-block;
-            font-size: 11px;
-            background: rgba(255, 255, 255, 0.05);
-            padding: 3px 10px;
-            border-radius: 12px;
-            color: #c9d1d9;
             margin-top: 15px;
-            border: 1px solid rgba(255, 255, 255, 0.05);
+            margin-bottom: 30px;
+            font-weight: 500;
         }
-        .footer-note {
-            font-size: 11px;
-            color: #ffb833;
-            margin-top: 35px;
+
+        .desc {
+            font-size: 14px;
+            color: #e2e8f0;
+            line-height: 1.8;
+            margin-bottom: 40px;
             font-weight: 300;
-            opacity: 0.8;
-            letter-spacing: 0.5px;
+        }
+
+        /* --- ปุ่มกดแบบมีเอฟเฟกต์แสงสแกน --- */
+        .btn {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px 45px;
+            font-size: 15px;
+            font-weight: 700;
+            color: #fff;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 30px;
+            text-decoration: none;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            letter-spacing: 1px;
+            cursor: pointer;
+        }
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%;
+            width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: 0.5s;
+        }
+        .btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: var(--primary);
+            box-shadow: 0 0 25px rgba(79, 172, 254, 0.4);
+            transform: translateY(-3px);
+        }
+        .btn:hover::before {
+            left: 100%;
+        }
+
+        .version {
+            margin-top: 25px;
+            font-size: 12px;
+            color: #718096;
+            letter-spacing: 1px;
         }
     </style>
 </head>
 <body>
 
-    <div class="showcase-card">
-        <div class="gallery-tag">Digital Innovation Exhibit</div>
-        <div class="brand-title">MinebeaMitsumi</div>
-        <div class="brand-sub">Data Reconciler</div>
-        
-        <div class="divider"></div>
-        
-        <h2>EXTOR — นวัตกรรมตรวจจับตารางข้อมูล</h2>
-        <p>ถ่ายทอดความแม่นยำผ่านอัลกอริทึมการเปรียบเทียบชั้นสูง<br>วิเคราะห์ความต่างของไฟล์ Excel และ CSV อย่างประณีตในเสี้ยววินาที</p>
-        
-        <div>
-            <span class="version-badge">Production Stable v1.0.0</span>
+    <!-- ก้อนแสงพื้นหลังขยับได้ -->
+    <div class="blob-container">
+        <div class="blob blob1"></div>
+        <div class="blob blob2"></div>
+        <div class="blob blob3"></div>
+    </div>
+
+    <!-- ลายเส้นตาราง -->
+    <div class="grid-overlay"></div>
+
+    <!-- กล่องหลัก -->
+    <div class="content">
+        <h1 class="logo-text">EXTOR</h1>
+        <div class="subtitle">Data Reconciler PRO</div>
+        <div class="desc">
+            Intelligent Data Comparison System<br>
+            ระบบเปรียบเทียบข้อมูลอัตโนมัติความแม่นยำสูง
         </div>
         
-        <!-- 📌 ใส่ลิงก์ดาวน์โหลดจริงแทนที่เครื่องหมาย # ตรง href ได้เลยครับหนุ่ม -->
-        <a href="https://github.com/Buanruk/EXTOR/releases/download/v1.0.0/EXTOR_Setup_v1.exe" class="btn-artwork">ENTER & DOWNLOAD APPLICATION</a>
+        <!-- 📌 อย่าลืมเอาลิงก์ดาวน์โหลดจริงของหนุ่มมาใส่แทนเครื่องหมาย # ตรงนี้ด้วยนะครับ -->
+        <a href="https://github.com/Buanruk/EXTOR/releases/download/v1.0.0/EXTOR_Setup_v1.exe" class="btn">
+            <span>DOWNLOAD INSTALLER</span>
+        </a>
         
-        <div class="footer-note">* แนะนำคลิกขวาที่ไฟล์ติดตั้งแล้วเลือก Run as administrator เพื่อประสิทธิภาพสูงสุด</div>
+        <div class="version">Stable Version 1.0.0</div>
     </div>
 
 </body>
