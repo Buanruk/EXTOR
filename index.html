@@ -3,77 +3,172 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Download EXTOR Data Reconciler</title>
+    <title>EXTOR - Data Reconciler Exhibit</title>
+    <!-- นำเข้าฟอนต์แนวหรูหราพรีเมียม -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    
     <style>
-        body { 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            background-color: #0d1117; 
-            color: #c9d1d9; 
-            text-align: center; 
-            padding: 80px 20px; 
+        * {
+            box-sizing: border-box;
             margin: 0;
+            padding: 0;
         }
-        .container { 
-            max-width: 550px; 
-            margin: auto; 
-            background-color: #1c2128; 
-            padding: 50px 40px; 
-            border-radius: 15px; 
-            border: 1px solid #30363d;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background: radial-gradient(circle at center, #111622 0%, #07090e 100%);
+            color: #f0f3f8; 
+            text-align: center; 
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            overflow-x: hidden;
         }
-        .logo-text {
-            font-size: 36px;
-            font-weight: bold;
-            color: #005eb8;
-            letter-spacing: 2px;
-            margin-bottom: 5px;
+        /* แอนิเมชันแสงพื้นหลังขยับช้า ๆ เหมือนงานศิลปะดิจิทัล */
+        body::before {
+            content: '';
+            position: absolute;
+            width: 300px;
+            height: 300px;
+            background: #005eb8;
+            filter: blur(150px);
+            opacity: 0.15;
+            top: 20%;
+            left: 25%;
+            z-index: 0;
+            animation: floating 8s ease-in-out infinite alternate;
         }
-        .sub-text {
-            font-size: 14px;
+        @keyframes floating {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(50px, 50px); }
+        }
+
+        .showcase-card { 
+            position: relative;
+            z-index: 1;
+            max-width: 600px; 
+            width: 100%;
+            /* เคลือบกระจกโปร่งแสง Glassmorphism */
+            background: rgba(22, 27, 34, 0.4); 
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            padding: 60px 50px; 
+            border-radius: 24px; 
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6), 
+                        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+        .gallery-tag {
+            font-size: 11px;
+            letter-spacing: 4px;
             color: #8b949e;
-            margin-bottom: 30px;
             text-transform: uppercase;
+            margin-bottom: 25px;
+            font-weight: 600;
         }
-        h2 { color: #ffffff; font-size: 22px; margin-bottom: 10px; }
-        p { color: #8b949e; font-size: 15px; line-height: 1.6; }
-        .btn { 
-            display: inline-block; 
-            padding: 15px 40px; 
-            margin-top: 30px; 
-            font-size: 16px; 
-            font-weight: bold; 
-            color: white; 
-            background-color: #005eb8; 
-            text-decoration: none; 
-            border-radius: 8px; 
-            box-shadow: 0 4px 15px rgba(0, 94, 184, 0.3);
-            transition: all 0.3s ease; 
+        .brand-title {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 48px;
+            font-weight: 400;
+            color: #ffffff;
+            letter-spacing: 3px;
+            line-height: 1.1;
+            margin-bottom: 8px;
         }
-        .btn:hover { 
-            background-color: #004b87; 
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0, 94, 184, 0.5);
-        }
-        .note {
+        .brand-sub {
             font-size: 12px;
+            color: #00a0ff;
+            letter-spacing: 5px;
+            text-transform: uppercase;
+            margin-bottom: 40px;
+            font-weight: 600;
+            opacity: 0.8;
+        }
+        .divider {
+            width: 40px;
+            height: 1px;
+            background-color: rgba(255, 255, 255, 0.2);
+            margin: 0 auto 35px auto;
+        }
+        h2 { 
+            font-size: 20px; 
+            font-weight: 400;
+            color: #ffffff; 
+            margin-bottom: 12px; 
+            letter-spacing: 1px;
+        }
+        p { 
+            color: #8b949e; 
+            font-size: 14px; 
+            line-height: 1.8; 
+            font-weight: 300;
+        }
+        /* ปุ่มดาวน์โหลดหรูหราพร้อมแสงนีออนเรืองแสงเมื่อเมาส์ชี้ */
+        .btn-artwork { 
+            display: inline-block; 
+            padding: 16px 45px; 
+            margin-top: 40px; 
+            font-size: 14px; 
+            font-weight: 600; 
+            color: #ffffff; 
+            background: #005eb8;
+            text-decoration: none; 
+            border-radius: 50px; 
+            letter-spacing: 2px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); 
+        }
+        .btn-artwork:hover { 
+            background: #ffffff; 
+            color: #07090e;
+            transform: translateY(-3px);
+            box-shadow: 0 15px 30px rgba(0, 94, 184, 0.4),
+                        0 0 20px rgba(255, 255, 255, 0.2);
+        }
+        .version-badge {
+            display: inline-block;
+            font-size: 11px;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 3px 10px;
+            border-radius: 12px;
+            color: #c9d1d9;
+            margin-top: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .footer-note {
+            font-size: 11px;
             color: #ffb833;
-            margin-top: 25px;
+            margin-top: 35px;
+            font-weight: 300;
+            opacity: 0.8;
+            letter-spacing: 0.5px;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="logo-text">MINEBEA</div>
-        <div class="sub-text">Data Reconciler System</div>
+
+    <div class="showcase-card">
+        <div class="gallery-tag">Digital Innovation Exhibit</div>
+        <div class="brand-title">MinebeaMitsumi</div>
+        <div class="brand-sub">Data Reconciler</div>
         
-        <h2>EXTOR - เปรียบเทียบข้อมูลตาราง</h2>
-        <p>โปรแกรม Reconcile ตรวจจับความต่างไฟล์ Excel และ CSV อัตโนมัติ<br>เวอร์ชันเสถียรล่าสุด: <b>v1.0.0</b></p>
+        <div class="divider"></div>
         
-        <!-- 📌 บรรทัดด้านล่างนี้ ให้ก๊อปปี้ลิงก์ตรงที่ได้จากสเตปที่ 1 มาวางแทนที่เครื่องหมาย # ตรง href="..." ครับ -->
-        <a href="https://github.com/Buanruk/EXTOR/releases/download/v1.0.0/EXTOR_Setup_v1.exe" class="btn">⬇ DOWNLOAD INSTALLER (.EXE)</a>
+        <h2>EXTOR — นวัตกรรมตรวจจับตารางข้อมูล</h2>
+        <p>ถ่ายทอดความแม่นยำผ่านอัลกอริทึมการเปรียบเทียบชั้นสูง<br>วิเคราะห์ความต่างของไฟล์ Excel และ CSV อย่างประณีตในเสี้ยววินาที</p>
         
-        <div class="note">* หมายเหตุ: ตอนติดตั้งโปรแกรม ให้คลิกขวาที่ไฟล์แล้วเลือก Run as administrator</div>
+        <div>
+            <span class="version-badge">Production Stable v1.0.0</span>
+        </div>
+        
+        <!-- 📌 ใส่ลิงก์ดาวน์โหลดจริงแทนที่เครื่องหมาย # ตรง href ได้เลยครับหนุ่ม -->
+        <a href="https://github.com/Buanruk/EXTOR/releases/download/v1.0.0/EXTOR_Setup_v1.exe" class="btn-artwork">ENTER & DOWNLOAD APPLICATION</a>
+        
+        <div class="footer-note">* แนะนำคลิกขวาที่ไฟล์ติดตั้งแล้วเลือก Run as administrator เพื่อประสิทธิภาพสูงสุด</div>
     </div>
+
 </body>
 </html>
