@@ -34,7 +34,7 @@ ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("blue")
 
 # =========================================================================
-APP_VERSION = "1.0.1"
+APP_VERSION = "1.0.2"
 VERSION_URL = "https://raw.githubusercontent.com/Buanruk/EXTOR/master/version.json"
 
 def check_for_updates():
