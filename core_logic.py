@@ -11,7 +11,9 @@ from openpyxl.utils import get_column_letter
 
 class DataReconciler:
     def __init__(self):
-        self.key_cols = ['Territory', 'Product Code', 'PART NO', 'Ship to']
+        # ตั้งค่าเริ่มต้นเป็น Shipping Keys (ถ้าระบบตรวจพบไฟล์อื่น ค่านี้จะถูกเปลี่ยนให้อัตโนมัติ)
+        self.default_shipping_keys = ['Territory', 'Product Code', 'PART NO', 'Ship to']
+        self.key_cols = list(self.default_shipping_keys)
         self.diff_map = {}        
         self.new_keys = set()     
         self.file2_path = ""
@@ -36,41 +38,49 @@ class DataReconciler:
     # Internal helpers
     # ─────────────────────────────────────────────
     def _find_header_idx(self, df):
-        for idx, row in df.head(50).iterrows():
+        # 🚀 SMART TWEAK 1: ตรวจหาแบบสากล
+        # ขั้นแรก: เช็คก่อนว่ามีคอลัมน์คู่ใจของระบบ Shipping เดิมไหม
+        for idx, row in df.head(40).iterrows():
             vals = [str(v).strip().lower() for v in row.values if pd.notna(v)]
-            if any('territory' in v for v in vals) and \
-               any('part' in v and 'no' in v.replace(' ', '') for v in vals):
+            if any('territory' in v for v in vals) and any('part' in v and 'no' in v.replace(' ', '') for v in vals):
                 return idx
-        return -1
+                
+        # ขั้นที่สอง (Fallback): ถ้าไม่ใช่ไฟล์ Shipping ให้หาแถวที่มีตัวหนังสือหนาแน่นที่สุด (มักจะเป็นหัวตาราง)
+        max_score = -1
+        best_idx = 0
+        for idx, row in df.head(20).iterrows():
+            vals = [str(v).strip() for v in row.values if pd.notna(v) and str(v).strip() != '']
+            if not vals: continue
+            # ให้คะแนนแถวที่มีข้อความยาวกำลังดีและไม่ใช่ตัวเลขล้วน
+            score = sum(1 for v in vals if not v.replace('.','',1).isdigit() and len(v) < 50)
+            if score > max_score:
+                max_score = score
+                best_idx = idx
+        return best_idx
 
-    # 📌 ท่าไม้ตาย: อ่านวันที่ให้ตรง 100% ห้ามเดามั่ว
     def _col_name(self, raw, i):
         if pd.isna(raw) or str(raw).strip() == '':
             return f'__blank_{i}'
 
-        # 1. ถ้ามาเป็น Date Object ตรงๆ จาก Excel
         if hasattr(raw, 'strftime'):
             return raw.strftime('%d-%b')
 
         s = str(raw).strip()
         lo = s.lower()
 
-        # 2. ถ้าในชื่อมีเดือนภาษาอังกฤษอยู่แล้ว (เช่น 4-Jun) ปล่อยผ่านเลย!
         months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
         if any(m in lo for m in months) and any(c.isdigit() for c in s):
             return s
 
-        # 3. ถ้า Pandas แอบดึงมาเป็น ISO String เช่น "2026-06-04 00:00:00"
         iso_match = re.match(r'^(\d{4})[-/](\d{1,2})[-/](\d{1,2})', s)
         if iso_match:
             y, m, d = iso_match.groups()
             try:
-                # แปลงเดือน 06 กลับเป็น Jun แบบตรงไปตรงมา
                 return f"{int(d):02d}-{calendar.month_abbr[int(m)]}"
             except:
                 pass
 
-        # 4. เช็คชื่อคอลัมน์มาตรฐาน
+        # ทำความสะอาดคอลัมน์มาตรฐาน (แต่ถ้าไม่ตรง ก็จะส่งชื่อเดิมกลับไปให้)
         if 'territory' in lo:          return 'Territory'
         if 'product' in lo and 'code' in lo: return 'Product Code'
         if 'part' in lo and 'no' in lo:return 'PART NO'
@@ -113,9 +123,7 @@ class DataReconciler:
                     raise KeyError(f"ใน Sheet '{sheet_name}' ไม่พบหัวตาราง")
                 df = df_str
                 cols = self._make_unique_cols(df_str.iloc[header_idx])
-
             else:
-                # อ่านแบบไม่ใส่ dtype=str เพื่อดึงค่า Date Object ออกมาก่อน
                 df_raw = pd.read_excel(filepath, sheet_name=sheet_name, header=None)
                 if df_raw is None or df_raw.empty:
                     raise ValueError(f"ไม่พบข้อมูลใน Sheet: {sheet_name}")
@@ -123,8 +131,6 @@ class DataReconciler:
                 if header_idx == -1:
                     raise KeyError(f"ใน Sheet '{sheet_name}' ไม่พบหัวตาราง")
                 cols = self._make_unique_cols(df_raw.iloc[header_idx])
-                
-                # อ่านอีกรอบเพื่อเอาข้อมูลเป็น string ป้องกัน .0 โผล่มา
                 df = pd.read_excel(filepath, sheet_name=sheet_name, header=None, dtype=str)
 
             df.columns = cols
@@ -137,14 +143,15 @@ class DataReconciler:
                 except Exception:
                     pass
 
-            for col in self.key_cols:
-                if col in df.columns:
-                    df[col] = df[col].astype(str).str.strip()
-                    df = df[df[col].notna() & (df[col] != '') & (df[col].str.lower() != 'nan') & (df[col].str.lower() != 'none')]
+            # เคลียร์ค่าว่างเฉพาะคอลัมน์ที่เป็น Key จริงๆ ณ ขณะนั้น
+            active_keys = [c for c in self.key_cols if c in df.columns]
+            for col in active_keys:
+                df[col] = df[col].astype(str).str.strip()
+                df = df[df[col].notna() & (df[col] != '') & (df[col].str.lower() != 'nan') & (df[col].str.lower() != 'none')]
 
-            idx_cols = [c for c in self.key_cols if c in df.columns]
-            if df.set_index(idx_cols).index.duplicated().any():
-                df = df[~df.set_index(idx_cols).index.duplicated(keep='first')]
+            if active_keys:
+                if df.set_index(active_keys).index.duplicated().any():
+                    df = df[~df.set_index(active_keys).index.duplicated(keep='first')]
 
             return df
         except Exception as e:
@@ -159,14 +166,30 @@ class DataReconciler:
         self.diff_map = {}
         self.new_keys = set()
 
+        # อ่านข้อมูลดิบมาก่อนเพื่อเช็คชื่อคอลัมน์
         df1 = self.clean_and_prepare_df(file1, sheet1, row_range)
         df2 = self.clean_and_prepare_df(file2, sheet2, row_range)
 
-        missing1 = [c for c in self.key_cols if c not in df1.columns]
-        missing2 = [c for c in self.key_cols if c not in df2.columns]
-        if missing1 or missing2:
-            raise KeyError(f"Missing Key Columns — File1: {missing1}, File2: {missing2}")
+        # 🚀 SMART TWEAK 2: ระบบตรวจจับ Key อัตโนมัติ (Dynamic Key Detection)
+        # ถ้าไฟล์มีคอลัมน์ครบตามเงื่อนไขของ Shippingเดิม ให้ใช้ของเดิม
+        if all(k in df1.columns for k in self.default_shipping_keys) and all(k in df2.columns for k in self.default_shipping_keys):
+            self.key_cols = list(self.default_shipping_keys)
+        else:
+            # ถ้าเป็นไฟล์อื่นๆ ให้มองหาคอลัมน์ที่มีคำว่า ID, Code, No, หรือ Key เป็นหลักในการจับคู่ข้อมูล
+            common_cols = list(df1.columns.intersection(df2.columns))
+            detected_keys = []
+            for col in common_cols:
+                cl = str(col).lower()
+                if any(k in cl for k in ['id', 'code', 'no.', 'no ', 'key', 'part', 'serial', 'sku', 'name']):
+                    detected_keys.append(col)
+            
+            # ถ้าหาตาม Keyword ไม่เจอเลย ให้เหมาคอลัมน์แรกของตารางเป็น Key แทน
+            if not detected_keys:
+                detected_keys = common_cols[:1] if common_cols else ['Index']
+                
+            self.key_cols = detected_keys
 
+        # ทำการตั้ง Index ตาม Key คอลัมน์ที่ระบบวิเคราะห์ออกมาได้
         df1.set_index(self.key_cols, inplace=True)
         df2.set_index(self.key_cols, inplace=True)
 
@@ -240,14 +263,14 @@ class DataReconciler:
             first = ['Status', 'Changed_Summary'] + self.key_cols
             others = [c for c in result_df.columns if c not in first and not c.startswith('__blank_')]
             
-            clean_date_cols = [c for c in others if '-' in c and not any(ign in c.lower() for ign in ['total', 'difference', 'carton'])]
-            result_df = result_df[first + clean_date_cols]
+            # ถ้าเป็นไฟล์แบบสากล ให้แสดงผลคอลัมน์ข้อมูลทั่วไปทั้งหมดต่อท้าย Key หลัก
+            result_df = result_df[first + others]
 
         self.result_df = result_df
         return result_df
 
     # ─────────────────────────────────────────────
-    # Export: สร้าง Sheet "Change_Details" ตรงเป๊ะตามรูป
+    # Export: สร้าง Sheet "Change_Details" แบบไดนามิก
     # ─────────────────────────────────────────────
     def export_excel(self, save_path):
         if not self.file2_path.lower().endswith('.xlsx'):
@@ -262,10 +285,11 @@ class DataReconciler:
         CHANGED_FILL = PatternFill(start_color='FFCC99FF', end_color='FFCC99FF', fill_type='solid')
         NEW_ROW_FILL  = PatternFill(start_color='FFE8CCFF', end_color='FFE8CCFF', fill_type='solid')
         
+        # ค้นหาตำแหน่งหัวตารางในไฟล์ Excel ผลลัพธ์
         header_row = 1
         for r in range(1, 20):
             vals = [str(ws.cell(r, c).value or '').strip().lower() for c in range(1, 12)]
-            if any('territory' in v for v in vals) and any('part' in v and 'no' in v.replace(' ', '') for v in vals):
+            if any(str(k).lower() in vals for k in self.key_cols):
                 header_row = r
                 break
 
@@ -274,18 +298,7 @@ class DataReconciler:
             val = ws.cell(header_row, c).value
             if val is None: continue
             name = self._col_name(val, c)
-            
-            if name in col_map:
-                cnt = sum(1 for v in col_map if str(v).startswith(name))
-                name = f"{name}_{cnt + 1}"
-                
-            lo = str(val).strip().lower()
-            if 'territory' in lo: col_map['Territory'] = c
-            elif 'product' in lo and 'code' in lo: col_map['Product Code'] = c
-            elif 'part' in lo and 'no' in lo: col_map['PART NO'] = c
-            elif 'ship' in lo and 'to' in lo: col_map['Ship to'] = c
-            elif 'carton' in lo: col_map['carton box'] = c
-            else: col_map[name] = c
+            col_map[name] = c
 
         change_details_data = []
 
@@ -304,7 +317,7 @@ class DataReconciler:
                 cv = ws.cell(r, col_map['carton box']).value
                 carton_val = str(cv).strip() if cv is not None and str(cv).strip() not in ('nan', 'None') else ""
 
-            # Changed Rows
+            # ข้อมูลแถวที่มีการเปลี่ยนแปลง
             if row_key_tuple in self.diff_map:
                 changes = self.diff_map[row_key_tuple]
                 for date_col_name, (old_v, new_v) in changes.items():
@@ -318,19 +331,19 @@ class DataReconciler:
 
                         cell.fill = CHANGED_FILL
                         
-                        change_details_data.append({
-                            'Territory': row_key[0],
-                            'Product Code': row_key[1],
-                            'PART NO': row_key[2],
-                            'carton box': carton_val,
-                            'Ship to': row_key[3],
+                        # สร้าง Dictionary เก็บข้อมูลแบบ Dynamic ตามคอลัมน์ Key จริง
+                        item_entry = {k: v for k, v in zip(self.key_cols, row_key)}
+                        if 'carton box' in col_map:
+                            item_entry['carton box'] = carton_val
+                        item_entry.update({
                             'Date': date_col_name,
                             'Old Qty': old_v,
                             'New Qty': new_v,
                             'Orig_Fill': orig_fill
                         })
+                        change_details_data.append(item_entry)
 
-            # New Rows
+            # ข้อมูลแถวที่เพิ่มเข้ามาใหม่
             elif row_key_tuple in self.new_keys:
                 max_col = ws.max_column
                 for c_idx in range(1, max_col + 1):
@@ -345,26 +358,29 @@ class DataReconciler:
                         if cell.fill and cell.fill.fill_type == 'solid':
                             orig_fill = copy.copy(cell.fill)
 
-                        change_details_data.append({
-                            'Territory': row_key[0],
-                            'Product Code': row_key[1],
-                            'PART NO': row_key[2],
-                            'carton box': carton_val,
-                            'Ship to': row_key[3],
+                        item_entry = {k: v for k, v in zip(self.key_cols, row_key)}
+                        if 'carton box' in col_map:
+                            item_entry['carton box'] = carton_val
+                        item_entry.update({
                             'Date': col_name,
                             'Old Qty': '-',
                             'New Qty': str(cell.value),
                             'Orig_Fill': orig_fill
                         })
+                        change_details_data.append(item_entry)
 
-        # 📌 สร้าง Sheet ใหม่ชื่อ Change_Details ทับ Sheet ขยะเก่า
+        # สร้าง Sheet ใหม่ชื่อ Change_Details
         if 'Change_Details' in wb.sheetnames: del wb['Change_Details']
         if 'Transport_Report' in wb.sheetnames: del wb['Transport_Report']
             
         ws_det = wb.create_sheet('Change_Details', 0)
         
-        # คอลัมน์แบบตรงเป๊ะตามรูปที่ให้มา
-        headers = ['Territory', 'Product Code', 'PART NO', 'carton box', 'Ship to', 'Date', 'Old Qty', 'New Qty']
+        # 🚀 SMART TWEAK 3: ประกอบหัวข้อรายงานตามโครงสร้างจริงของไฟล์นั้นๆ
+        headers = list(self.key_cols)
+        if 'carton box' in col_map:
+            headers.append('carton box')
+        headers.extend(['Date', 'Old Qty', 'New Qty'])
+        
         ws_det.append(headers)
         
         HDR_FILL = PatternFill(start_color='FF1E293B', end_color='FF1E293B', fill_type='solid')
@@ -374,37 +390,36 @@ class DataReconciler:
             cell.fill = HDR_FILL
             cell.font = HDR_FONT
 
-        # วนลูปใส่ข้อมูล
+        # บันทึกข้อมูลลงตาราง
         for item in change_details_data:
             old_v = str(item['Old Qty']).strip()
             new_v = str(item['New Qty']).strip()
             
-            # แปลงข้อความ "ค่าเดิมไม่มี" / "ค่าใหม่ XXX" ให้ตรงเป๊ะ
             old_text = "ค่าเดิมไม่มี" if old_v in ('-', '', 'nan', '0', 'None') else f"ค่าเดิม {old_v}"
             new_text = "ค่าใหม่ไม่มี" if new_v in ('-', '', 'nan', '0', 'None') else f"ค่าใหม่ {new_v}"
             
-            row_vals = [
-                item['Territory'] if item['Territory'] != 'nan' else '',
-                item['Product Code'] if item['Product Code'] != 'nan' else '',
-                item['PART NO'] if item['PART NO'] != 'nan' else '',
-                item['carton box'],
-                item['Ship to'] if item['Ship to'] != 'nan' else '',
-                item['Date'],
-                old_text,
-                new_text
-            ]
+            row_vals = []
+            for h in headers:
+                if h == 'Date': row_vals.append(item['Date'])
+                elif h == 'Old Qty': row_vals.append(old_text)
+                elif h == 'New Qty': row_vals.append(new_text)
+                else: row_vals.append(item.get(h, '').replace('nan', ''))
+                
             ws_det.append(row_vals)
             current_row = ws_det.max_row
             
-            # 📌 ดูดสีต้นฉบับมาแปะทับที่ช่อง Date
+            # คืนค่าสีสันไฮไลท์ให้ช่อง Date
             if item['Orig_Fill']:
-                date_cell = ws_det.cell(current_row, 6)
+                # หาตำแหน่งหลักของ 'Date' เพื่อหยอดสีให้ถูกช่อง
+                date_col_idx = headers.index('Date') + 1
+                date_cell = ws_det.cell(current_row, date_col_idx)
                 date_cell.fill = item['Orig_Fill']
-                date_cell.font = Font(color='000000') # บังคับให้ตัวหนังสือเป็นสีดำจะได้อ่านชัดๆ
-                
-        # ปรับความกว้างคอลัมน์ให้อ่านง่าย
-        col_widths = {'A': 12, 'B': 15, 'C': 18, 'D': 12, 'E': 25, 'F': 15, 'G': 18, 'H': 18}
-        for col_letter, width in col_widths.items():
-            ws_det.column_dimensions[col_letter].width = width
+                date_cell.font = Font(color='000000')
+
+        # ขยายความกว้างของทุกคอลัมน์อัตโนมัติเพื่อไม่ให้โดนบัง
+        for col in ws_det.columns:
+            max_len = max(len(str(cell.value or '')) for cell in col)
+            col_letter = get_column_letter(col[0].column)
+            ws_det.column_dimensions[col_letter].width = max(max_len + 4, 12)
 
         wb.save(save_path)

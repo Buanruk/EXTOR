@@ -34,17 +34,21 @@ ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("blue")
 
 # =========================================================================
-APP_VERSION = "1.0.2"
+APP_VERSION = "2.0.0"
 VERSION_URL = "https://raw.githubusercontent.com/Buanruk/EXTOR/master/version.json"
 
 def check_for_updates():
     try:
+        # เช็คว่าเป็นไฟล์ .exe หรือไม่ (ถ้าเป็นรันผ่าน Python script จะไม่อัปเดต)
         if not sys.executable.endswith('.exe') or 'python' in sys.executable.lower():
             return
+            
         req = urllib.request.Request(VERSION_URL, headers={'User-Agent': 'Mozilla/5.0'})
         with urllib.request.urlopen(req, timeout=5) as response:
             server_config = json.loads(response.read().decode('utf-8'))
+            
         latest_version = server_config.get("version", "1.0.0")
+        
         if latest_version != APP_VERSION:
             import tkinter as tk
             root = tk.Tk()
@@ -56,20 +60,42 @@ def check_for_updates():
                 f"(ระบบจะดาวน์โหลดและติดตั้งอัตโนมัติ)"
             )
             root.destroy()
+            
             if ans:
+                cur = sys.executable  # Path ของ .exe ปัจจุบันที่กำลังรันอยู่
+                exe_name = os.path.basename(cur) # ดึงชื่อไฟล์ เช่น app_ui.exe หรือ main_ui.exe
+                
+                # ดาวน์โหลดไฟล์จาก GitHub โดยใช้ชื่อไฟล์ exe_name ให้ตรงกับที่รันอยู่
+                # *** ข้อควรระวัง: ไฟล์ใน GitHub Release ต้องชื่อตรงกับตัวที่กำลังรันอยู่นะครับ ***
                 dl = (f"https://github.com/Buanruk/EXTOR/releases/download/"
-                      f"v{latest_version}/main_ui.exe")
-                cur = sys.executable
+                      f"v{latest_version}/{exe_name}")
+                      
                 tmp = os.path.join(os.path.dirname(cur), "update_temp.exe")
                 urllib.request.urlretrieve(dl, tmp)
+                
                 bat_path = os.path.join(os.path.dirname(cur), "updater.bat")
+                
+                # เขียนไฟล์ Batch Script แบบปลอดภัย
                 with open(bat_path, "w", encoding="cp874") as bat:
-                    bat.write('@echo off\ntimeout /t 2 /nobreak > nul\n')
-                    bat.write(f'copy /y "{tmp}" "{cur}"\ndel "{tmp}"\n')
-                    bat.write(f'start "" "{cur}"\ndel "%~f0"\n')
+                    bat.write('@echo off\n')
+                    # บังคับปิด .exe ตัวที่เปิดอยู่ให้สนิท เพื่อไม่ให้ติด Permission Denied
+                    bat.write(f'taskkill /F /IM "{exe_name}" > nul 2>&1\n')
+                    bat.write('timeout /t 2 /nobreak > nul\n')
+                    # ลบตัวเก่าทิ้ง
+                    bat.write(f'del "{cur}"\n')
+                    # เปลี่ยนชื่อ/ย้ายตัวใหม่มาแทนที่
+                    bat.write(f'move /y "{tmp}" "{cur}"\n')
+                    # เปิดโปรแกรมขึ้นมาใหม่
+                    bat.write(f'start "" "{cur}"\n')
+                    # ลบไฟล์ .bat ตัวเองทิ้ง
+                    bat.write('del "%~f0"\n')
+                    
                 subprocess.Popen([bat_path], shell=True)
                 sys.exit()
-    except Exception:
+                
+    except Exception as e:
+        # หากมี Error เช่น เน็ตหลุด ให้ปล่อยผ่านไปเลย เข้าแอปปกติ
+        print(f"Update Check Failed: {e}")
         pass
 
 # ── DARK SLATE & UX/UI PALETTE ──────────────────────────────────────────────
@@ -150,7 +176,6 @@ class MinimalGridBackground(ctk.CTkCanvas):
         for y in range(0, h + cell, cell):
             self.create_line(0, y, w, y, fill=grid_color, width=1)
 
-
 # =========================================================================
 # Minimal Spinner
 # =========================================================================
@@ -230,7 +255,7 @@ def sec_label(parent, text, icon=""):
     r = ctk.CTkFrame(parent, fg_color="transparent")
     r.pack(fill="x", padx=16, pady=(14, 4))
     if icon:
-        ctk.CTkLabel(r, text="■ ",
+        ctk.CTkLabel(r, text="",
                      font=ctk.CTkFont(family="Consolas", size=11),
                      text_color=C["muted"]).pack(side="left")
     ctk.CTkLabel(r, text=f" {text}",
@@ -286,7 +311,7 @@ class ExcelCompareApp(ctk.CTk):
         # -------------------------------------------------------------
         self.withdraw()
 
-        self.title("EXTOR  —  Data Reconciler V1.0.2")
+        self.title("EXTOR  —  Data Reconciler V2.0.0")
         self.geometry("1500x900")
         self.minsize(1100, 700)
         self.configure(fg_color=C["root"])
@@ -367,24 +392,12 @@ class ExcelCompareApp(ctk.CTk):
     def _tree_style(self):
         s = ttk.Style(self)
         s.theme_use("clam")
-        s.configure("X.Treeview",
-                    background=C["tree_bg"],
-                    fieldbackground=C["tree_bg"],
-                    foreground=C["tree_fg"],
-                    rowheight=38,
-                    borderwidth=0,
-                    relief="flat",
-                    font=("Consolas", 10))
-        s.map("X.Treeview",
-              background=[("selected", C["tree_sel"])],
-              foreground=[("selected", C["tree_sfg"])])
-        s.configure("X.Treeview.Heading",
-                    background=C["tree_head"],
-                    foreground=C["text2"],
-                    relief="flat",
-                    borderwidth=0,
-                    font=("Consolas", 10, "bold"),
-                    padding=10)
+        # เปลี่ยน font เป็น 12 และ rowheight เป็น 42
+        s.configure("X.Treeview", background=C["tree_bg"], fieldbackground=C["tree_bg"], foreground=C["tree_fg"], rowheight=42, borderwidth=0, relief="flat", font=("Consolas", 12))
+        s.map("X.Treeview", background=[("selected", C["tree_sel"])], foreground=[("selected", C["tree_sfg"])])
+        
+        # หัวตารางหลัก เปลี่ยน font เป็น 12
+        s.configure("X.Treeview.Heading", background=C["tree_head"], foreground=C["text2"], relief="flat", borderwidth=0, font=("Consolas", 12, "bold"), padding=10)
         s.map("X.Treeview.Heading",
               background=[("active", C["border"])],
               relief=[("active", "flat")])
@@ -816,35 +829,23 @@ class ExcelCompareApp(ctk.CTk):
                 normal_data.append((col, vs))
 
         def render(title, tc, data, hbg, rbg1, rbg2, vfg):
-            ctk.CTkLabel(scroll, text=title,
-                         font=ctk.CTkFont(family="Consolas", size=11, weight="bold"),
-                         text_color=tc).pack(anchor="w", pady=(12, 5), padx=6)
-            tbl = ctk.CTkFrame(scroll, fg_color=hbg, corner_radius=6,
-                               border_width=1, border_color=C["border"])
+            # หัวข้อ (เช่น CHANGED FIELDS) เปลี่ยน size เป็น 13
+            ctk.CTkLabel(scroll, text=title, font=ctk.CTkFont(family="Consolas", size=13, weight="bold"), text_color=tc).pack(anchor="w", pady=(12, 5), padx=6)
+            
+            tbl = ctk.CTkFrame(scroll, fg_color=hbg, corner_radius=6, border_width=1, border_color=C["border"])
             tbl.pack(fill="x", padx=4, pady=(0, 10))
             tbl.columnconfigure(0, weight=1)
             tbl.columnconfigure(1, weight=3)
+            
             for ci, ht in enumerate(["COLUMN", "VALUE"]):
-                ctk.CTkLabel(tbl, text=f"  {ht}",
-                             fg_color=hbg, text_color=C["text2"],
-                             font=ctk.CTkFont(family="Consolas", size=10, weight="bold"),
-                             anchor="w").grid(
-                    row=0, column=ci, sticky="nsew",
-                    padx=1, pady=(2, 1), ipady=7)
+                # หัวตารางย่อย เปลี่ยน size เป็น 12
+                ctk.CTkLabel(tbl, text=f"  {ht}", fg_color=hbg, text_color=C["text2"], font=ctk.CTkFont(family="Consolas", size=12, weight="bold"), anchor="w").grid(row=0, column=ci, sticky="nsew", padx=1, pady=(2, 1), ipady=7)
+                
             for i, (col, val) in enumerate(data):
                 rb = rbg1 if i % 2 == 0 else rbg2
-                ctk.CTkLabel(tbl, text=f"  {col}",
-                             fg_color=rb, text_color=C["muted"],
-                             anchor="w",
-                             font=ctk.CTkFont(family="Consolas", size=10)).grid(
-                    row=i + 1, column=0, sticky="nsew",
-                    padx=1, pady=1, ipady=7)
-                ctk.CTkLabel(tbl, text=f"  {val}",
-                             fg_color=rb, text_color=vfg,
-                             anchor="w",
-                             font=ctk.CTkFont(family="Consolas", size=10, weight="bold")).grid(
-                    row=i + 1, column=1, sticky="nsew",
-                    padx=1, pady=1, ipady=7)
+                # ข้อความข้อมูล (ซ้ายและขวา) เปลี่ยน size เป็น 12
+                ctk.CTkLabel(tbl, text=f"  {col}", fg_color=rb, text_color=C["muted"], anchor="w", font=ctk.CTkFont(family="Consolas", size=12)).grid(row=i + 1, column=0, sticky="nsew", padx=1, pady=1, ipady=7)
+                ctk.CTkLabel(tbl, text=f"  {val}", fg_color=rb, text_color=vfg, anchor="w", font=ctk.CTkFont(family="Consolas", size=12, weight="bold")).grid(row=i + 1, column=1, sticky="nsew", padx=1, pady=1, ipady=7)
 
         if changed_data:
             render("CHANGED FIELDS", C["amber_fg"],
@@ -910,21 +911,23 @@ class ExcelCompareApp(ctk.CTk):
     # =====================================================================
     def run_comparison_thread(self):
         if not self.file1_path or not self.file2_path:
-            messagebox.showwarning("WARNING",
-                                   "กรุณาเลือกไฟล์ให้ครบทั้ง 2 ฝั่งครับ")
+            messagebox.showwarning("WARNING", "กรุณาเลือกไฟล์ให้ครบทั้ง 2 ฝั่งครับ")
             return
         s1, s2 = self.sheet_var1.get(), self.sheet_var2.get()
         if "Sheet" in s1 or "Sheet" in s2:
             messagebox.showwarning("WARNING", "กรุณาเลือก Sheet ด้วยครับ")
             return
+            
         f1 = os.path.basename(self.file1_path)
         f2 = os.path.basename(self.file2_path)
-        self.lbl_compare_info.configure(
-            text=f"{f1}   ⇄   {f2}",
-            text_color=C["text2"])
+        
+        # ตัดคำตรงกลางถ้ายาวเกินใน Label ด้านบนของตาราง
+        d1 = f1[:12] + "..." + f1[-12:] if len(f1) > 27 else f1
+        d2 = f2[:12] + "..." + f2[-12:] if len(f2) > 27 else f2
+        
+        self.lbl_compare_info.configure(text=f"{d1}  ⇄  {d2}", text_color=C["text2"])
         self.show_loading()
-        threading.Thread(
-            target=self._process, args=(s1, s2), daemon=True).start()
+        threading.Thread(target=self._process, args=(s1, s2), daemon=True).start()
 
     def _process(self, s1, s2):
         row_lim = self.entry_row.get()
@@ -945,9 +948,8 @@ class ExcelCompareApp(ctk.CTk):
         self.hide_loading()
         total = len(self.result_df)
         if total == 0:
-            self.lbl_summary.configure(
-                text="✓  DATA MATCH 100%",
-                text_color=C["text2"])
+            # 🚀 TWEAK 4: ปรับปรุง Empty State ให้แสดงผลชัดเจนและเปลี่ยนเป็นสีเขียวเมื่อข้อมูล Match กันหมด
+            self.lbl_summary.configure(text="✓ 100% DATA MATCH (NO DIFFERENCES)", text_color=C["green"])
             self.btn_export.configure(state="disabled")
             self._clear_trees()
             self._update_pills(0, 0, 0)
@@ -956,18 +958,13 @@ class ExcelCompareApp(ctk.CTk):
             chg = vc.get("Changed", 0)
             new = vc.get("New",     0)
             dlt = vc.get("Deleted", 0)
-            self.lbl_summary.configure(
-                text=f" {total} DIFFERENCES FOUND",
-                text_color=C["text"])
+            self.lbl_summary.configure(text=f" {total} DIFFERENCES FOUND", text_color=C["text"])
             self.btn_export.configure(state="normal")
             self._update_pills(chg, new, dlt)
             self._fill(self.tree_all,     self.result_df)
-            self._fill(self.tree_changed,
-                       self.result_df[self.result_df["Status"] == "Changed"])
-            self._fill(self.tree_new,
-                       self.result_df[self.result_df["Status"] == "New"])
-            self._fill(self.tree_del,
-                       self.result_df[self.result_df["Status"] == "Deleted"])
+            self._fill(self.tree_changed, self.result_df[self.result_df["Status"] == "Changed"])
+            self._fill(self.tree_new,     self.result_df[self.result_df["Status"] == "New"])
+            self._fill(self.tree_del,     self.result_df[self.result_df["Status"] == "Deleted"])
 
     def _update_pills(self, chg, new, dlt):
         self._pills["changed"].configure(text=f"   {chg}  CHANGED  ")
@@ -983,47 +980,146 @@ class ExcelCompareApp(ctk.CTk):
         tree.delete(*tree.get_children())
         if df.empty:
             return
+            
         tree["columns"] = list(df.columns)
+        
+        # ซ่อนคอลัมน์ Status ไม่ให้รกตา
+        display_cols = [c for c in df.columns if c != "Status"]
+        tree["displaycolumns"] = display_cols
         tree["show"] = "headings"
+        
+        col_widths = {}
+        for col in df.columns:
+            # 1. เช็คความยาวของชื่อหัวคอลัมน์ (Header)
+            max_len = len(str(col))
+            
+            # 2. เช็คความยาวของข้อมูลในคอลัมน์นั้น
+            series_str = df[col].dropna().astype(str)
+            if not series_str.empty:
+                max_len = max(max_len, series_str.map(len).max())
+            
+            # 3. ปรับสมการความกว้าง: คูณ 10 พิกเซลต่อตัวอักษร + บวกพื้นที่เผื่อขอบ 50 พิกเซล
+            calculated_width = int(max_len * 10) + 50
+            col_widths[col] = min(calculated_width, 600)
+        
         for col in df.columns:
             tree.heading(col, text=col)
-            w = 130 if col not in self.processor.key_cols else 100
-            tree.column(col, width=w, minwidth=80)
+            
+            w = max(col_widths[col], 100)
+            
+            align = "w"
+            col_lower = col.lower()
+            is_num_type = pd.api.types.is_numeric_dtype(df[col])
+            if is_num_type or any(kw in col_lower for kw in ['qty', 'amount', 'price', 'total', 'num', 'vol']):
+                align = "e"
+                
+            # 🚀 TWEAK สำคัญ: ใส่ stretch=False เพื่อให้ผู้ใช้ดึงขยายคอลัมน์ได้อิสระและไม่เด้งกลับ
+            tree.column(col, width=w, minwidth=80, anchor=align, stretch=False)
+            
         for _, row in df.iterrows():
             rd = ["" if pd.isna(x) else str(x) for x in row]
             st = row.get("Status", "")
             tree.insert("", "end", values=rd, tags=(st,))
 
+# (โค้ดฟังก์ชันอื่นๆ ด้านบนของคลาส ExcelCompareApp...)
+
     # =====================================================================
-    # Export
+    # 🚀 ส่วนที่เอามาวางแทนอันเดิม (วางต่อท้ายฟังก์ชันตัวบนของคลาสได้เลย)
     # =====================================================================
+    def show_export_loader(self):
+        self.export_win = ctk.CTkToplevel(self)
+        self.export_win.overrideredirect(True)
+        self.export_win.geometry("260x260")
+        x = (self.winfo_screenwidth() // 2) - (260 // 2)
+        y = (self.winfo_screenheight() // 2) - (260 // 2)
+        self.export_win.geometry(f"+{x}+{y}")
+        self.export_win.configure(fg_color=C["root"])
+        self.export_win.attributes('-topmost', True)
+        self.export_win.grab_set()
+
+        outer = ctk.CTkFrame(self.export_win, fg_color=C["glass"], border_width=1, border_color=C["border"], corner_radius=12)
+        outer.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        self.exp_spinner = ctk.CTkCanvas(outer, width=120, height=120, bg=C["glass"], highlightthickness=0)
+        self.exp_spinner.pack(pady=(35, 15))
+        
+        self.exp_angle = 0
+        self.exp_running = True
+        self._tick_exp_spinner()
+
+        ctk.CTkLabel(outer, text="EXPORTING DATA...", font=ctk.CTkFont(family="Consolas", size=14, weight="bold"), text_color=C["primary"]).pack()
+        ctk.CTkLabel(outer, text="Please wait a moment.", font=ctk.CTkFont(family="Consolas", size=10), text_color=C["muted"]).pack()
+
+    def _tick_exp_spinner(self):
+        if not hasattr(self, 'exp_running') or not self.exp_running:
+            return
+        c = self.exp_spinner
+        c.delete("all")
+        cx, cy = 60, 60
+        c.create_arc(10, 10, 110, 110, start=self.exp_angle, extent=100, outline=C["primary"], width=5, style="arc")
+        c.create_arc(10, 10, 110, 110, start=self.exp_angle + 180, extent=100, outline=C["border2"], width=5, style="arc")
+        c.create_text(cx, cy, text="B", fill=C["text"], font=("Consolas", 36, "bold"))
+        self.exp_angle = (self.exp_angle + 8) % 360
+        self.after(20, self._tick_exp_spinner)
+
+    def hide_export_loader(self):
+        self.exp_running = False
+        if hasattr(self, 'export_win') and self.export_win.winfo_exists():
+            self.export_win.grab_release()
+            self.export_win.destroy()
+
+    def show_custom_popup(self, title, message, p_type="success"):
+        popup = ctk.CTkToplevel(self)
+        popup.title(title)
+        popup.geometry("450x220")
+        x = (self.winfo_screenwidth() // 2) - (450 // 2)
+        y = (self.winfo_screenheight() // 2) - (220 // 2)
+        popup.geometry(f"+{x}+{y}")
+        popup.configure(fg_color=C["root"])
+        popup.grab_set() 
+        popup.attributes('-topmost', True)
+        if os.path.exists("EXTORLOGO.ico"):
+            popup.iconbitmap("EXTORLOGO.ico")
+
+        color = C["green"] if p_type == "success" else C["red"]
+        ctk.CTkFrame(popup, height=4, fg_color=color, corner_radius=0).pack(fill="x", side="top")
+        
+        content = ctk.CTkFrame(popup, fg_color=C["glass"], corner_radius=8, border_width=1, border_color=C["border"])
+        content.pack(fill="both", expand=True, padx=20, pady=20)
+        
+        icon_text = "✓" if p_type == "success" else "✕"
+        hdr = ctk.CTkFrame(content, fg_color="transparent")
+        hdr.pack(fill="x", padx=15, pady=(15, 5))
+        ctk.CTkLabel(hdr, text=icon_text, font=ctk.CTkFont(family="Consolas", size=24, weight="bold"), text_color=color).pack(side="left", padx=(0, 10))
+        ctk.CTkLabel(hdr, text=title, font=ctk.CTkFont(family="Consolas", size=14, weight="bold"), text_color=C["text"]).pack(side="left")
+        
+        ctk.CTkLabel(content, text=message, font=ctk.CTkFont(family="Consolas", size=12), text_color=C["text2"], justify="left").pack(anchor="w", padx=45, pady=(0, 15))
+        
+        btn = ctk.CTkButton(content, text="OK", width=120, height=34, fg_color=C["input"], hover_color=C["border"], border_width=1, border_color=C["border2"], text_color=C["text"], font=ctk.CTkFont(family="Consolas", size=12, weight="bold"), command=popup.destroy)
+        btn.pack(anchor="e", padx=20, pady=(0, 15))
+
     def export_result(self):
         if self.result_df is None or self.result_df.empty:
             return
-        sp = filedialog.asksaveasfilename(
-            defaultextension=".xlsx",
-            filetypes=[("Excel files", "*.xlsx")],
-            initialfile="EXTOR_Reconcile_Result.xlsx")
+        sp = filedialog.asksaveasfilename(defaultextension=".xlsx", filetypes=[("Excel files", "*.xlsx")], initialfile="EXTOR_Reconcile_Result.xlsx")
         if sp:
-            self.btn_export.configure(state="disabled", text="EXPORTING...")
-            threading.Thread(
-                target=self._run_export_backend, args=(sp,),
-                daemon=True).start()
+            self.btn_export.configure(state="disabled")
+            self.show_export_loader()
+            threading.Thread(target=self._run_export_backend, args=(sp,), daemon=True).start()
 
     def _run_export_backend(self, save_path):
         try:
             self.processor.export_excel(save_path)
-            self.after(0, lambda: self.btn_export.configure(state="normal", text="↓  EXPORT EXCEL"))
-            self.after(0, lambda: messagebox.showinfo(
-                "EXPORT COMPLETE",
-                "Excel file exported successfully!\n"
-                "Sheet: Transport_Report included ✓"))
+            self.after(0, self.hide_export_loader)
+            self.after(0, lambda: self.btn_export.configure(state="normal"))
+            self.after(0, lambda: self.show_custom_popup("EXPORT COMPLETE", "Excel file exported successfully!\n\nSheet: Change_Details included", "success"))
         except Exception as e:
-            self.after(0, lambda: self.btn_export.configure(state="normal", text="↓  EXPORT EXCEL"))
-            self.after(0, lambda: messagebox.showerror(
-                "EXPORT ERROR", f"Failed to save file:\n{str(e)}"))
+            self.after(0, self.hide_export_loader)
+            self.after(0, lambda: self.btn_export.configure(state="normal"))
+            self.after(0, lambda: self.show_custom_popup("EXPORT ERROR", f"Failed to save file:\n{str(e)}", "error"))
 
 
+# ⚠️ สังเกตตรงนี้: บรรทัดนี้อยู่ชิดหน้าต่างซ้ายสุด (ไม่มีย่อหน้า) ห้ามลบเด็ดขาด!
 if __name__ == "__main__":
     check_for_updates()
     app = ExcelCompareApp()
